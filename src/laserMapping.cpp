@@ -48,7 +48,6 @@
 #include <nav_msgs/Path.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <visualization_msgs/Marker.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
@@ -62,6 +61,7 @@
 #include <livox_ros_driver/CustomMsg.h>
 #include "preprocess.h"
 #include <ikd-Tree/ikd_Tree.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 #define INIT_TIME           (0.1)
 #define LASER_POINT_COV     (0.001)
@@ -116,8 +116,8 @@ PointCloudXYZI::Ptr laserCloudOri(new PointCloudXYZI(100000, 1));
 PointCloudXYZI::Ptr corr_normvect(new PointCloudXYZI(100000, 1));
 PointCloudXYZI::Ptr _featsArray;
 
-std_msgs::VoxelGrid<PointType> downSizeFilterSurf;
-std_msgs::VoxelGrid<PointType> downSizeFilterMap;
+pcl::VoxelGrid<PointType> downSizeFilterSurf;
+pcl::VoxelGrid<PointType> downSizeFilterMap;
 
 KD_TREE ikdtree;
 
@@ -296,7 +296,7 @@ class Accumulator {
 
    private:
     int pcl_type;
-    pcl::PointCloud<velodyne_ros::Point> accum_pcl;
+    pcl::PointCloud<pcl::PointXYZI> accum_pcl;
     int last_timestamp_lidar_part;
     int parts_received;
 
@@ -313,9 +313,8 @@ class Accumulator {
     void receive(const sensor_msgs::PointCloud2::ConstPtr &msg) {
         this->last_timestamp_lidar_part = msg->header.stamp.toSec();
         
-        pcl::PointCloud<velodyne_ros::Point> part; 
-        pcl::fromROSmsg(*msg, part);
-        
+        pcl::PointCloud<pcl::PointXYZI> part;
+        pcl::fromROSMsg(*msg, part);
         this->accum_pcl += part;
         ++parts_received;
 
@@ -325,9 +324,9 @@ class Accumulator {
     void prefilter() { return; }
     void postfilter() { return; }
 
-    pcl::PointCloud<velodyne_ros::Point> get() {
+    pcl::PointCloud<pcl::PointXYZI> get() {
         this->postfilter();
-        pcl::PointCloud<velodyne_ros::Point> temp = this->accum_pcl;
+        pcl::PointCloud<pcl::PointXYZI> temp = this->accum_pcl;
         this->accum_pcl.points.clear();
         parts_received = 0;
         return temp;
@@ -347,7 +346,7 @@ class Accumulator {
         }
 
         PointCloudXYZI::Ptr ptr(new PointCloudXYZI());
-        const pcl::PointCloud<velodyne_ros::Point> gotten_pcl = this->get();
+        const pcl::PointCloud<pcl::PointXYZI> gotten_pcl = this->get();
         p_pre->process(gotten_pcl, ptr);
         
         lidar_buffer.push_back(ptr);
