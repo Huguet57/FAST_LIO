@@ -1615,8 +1615,12 @@ public:
 		}
 	}
 	
+	typedef std::vector<double> Vd;
+	typedef std::vector<Vd> Md;
+	typedef std::vector<Md> Td;
+
 	//iterated error state EKF update modified for one specific system.
-	void update_iterated_dyn_share_modified(double R, double &solve_time) {
+	Eigen::VectorXd update_iterated_dyn_share_modified(double R, double &solve_time) {
 		
 		dyn_share_datastruct<scalar_type> dyn_share;
 		dyn_share.valid = true;
@@ -1712,6 +1716,13 @@ public:
 			}
 			*/
 
+			Eigen::VectorXd weights_v = Eigen::VectorXd::Ones(dof_Measurement);
+			if (dof_Measurement == dyn_share.R.rows()) {
+			} else {
+				cout << "Diff sizes #" << i << ": " << dof_Measurement << " " << dyn_share.R.rows() << endl;
+			}
+			Eigen::MatrixXd W = dyn_share.R;
+
 			if(n > dof_Measurement)
 			{
 			//#ifdef USE_sparse
@@ -1720,21 +1731,7 @@ public:
 				//K_temp += R_temp;
 				Eigen::Matrix<scalar_type, Eigen::Dynamic, Eigen::Dynamic> h_x_cur = Eigen::Matrix<scalar_type, Eigen::Dynamic, Eigen::Dynamic>::Zero(dof_Measurement, n);
 				h_x_cur.topLeftCorner(dof_Measurement, 12) = h_x_;
-				/*
-				h_x_cur.col(0) = h_x_.col(0);
-				h_x_cur.col(1) = h_x_.col(1);
-				h_x_cur.col(2) = h_x_.col(2);
-				h_x_cur.col(3) = h_x_.col(3);
-				h_x_cur.col(4) = h_x_.col(4);
-				h_x_cur.col(5) = h_x_.col(5);
-				h_x_cur.col(6) = h_x_.col(6);
-				h_x_cur.col(7) = h_x_.col(7);
-				h_x_cur.col(8) = h_x_.col(8);
-				h_x_cur.col(9) = h_x_.col(9);
-				h_x_cur.col(10) = h_x_.col(10);
-				h_x_cur.col(11) = h_x_.col(11);
-				*/
-				
+								
 				Matrix<scalar_type, Eigen::Dynamic, Eigen::Dynamic> K_ = P_ * h_x_cur.transpose() * (h_x_cur * P_ * h_x_cur.transpose()/R + Eigen::Matrix<double, Dynamic, Dynamic>::Identity(dof_Measurement, dof_Measurement)).inverse()/R;
 				K_h = K_ * dyn_share.h;
 				K_x = K_ * h_x_cur;
@@ -1744,29 +1741,18 @@ public:
 			}
 			else
 			{
+
 			#ifdef USE_sparse
 				//Eigen::Matrix<scalar_type, n, n> b = Eigen::Matrix<scalar_type, n, n>::Identity();
 				//Eigen::SparseQR<Eigen::SparseMatrix<scalar_type>, Eigen::COLAMDOrdering<int>> solver; 
-				spMt A = h_x_.transpose() * h_x_;
-				cov P_temp = (P_/R).inverse();
+				spMt W_ = W.sparseView();
+				spMt A = h_x_.transpose() * W_/R * h_x_;
+				cov P_temp = P_.inverse();
 				P_temp. template block<12, 12>(0, 0) += A;
 				P_temp = P_temp.inverse();
-				/*
-				Eigen::Matrix<scalar_type, Eigen::Dynamic, Eigen::Dynamic> h_x_cur = Eigen::Matrix<scalar_type, Eigen::Dynamic, Eigen::Dynamic>::Zero(dof_Measurement, n);
-				h_x_cur.col(0) = h_x_.col(0);
-				h_x_cur.col(1) = h_x_.col(1);
-				h_x_cur.col(2) = h_x_.col(2);
-				h_x_cur.col(3) = h_x_.col(3);
-				h_x_cur.col(4) = h_x_.col(4);
-				h_x_cur.col(5) = h_x_.col(5);
-				h_x_cur.col(6) = h_x_.col(6);
-				h_x_cur.col(7) = h_x_.col(7);
-				h_x_cur.col(8) = h_x_.col(8);
-				h_x_cur.col(9) = h_x_.col(9);
-				h_x_cur.col(10) = h_x_.col(10);
-				h_x_cur.col(11) = h_x_.col(11);
-				*/
-				K_ = P_temp. template block<n, 12>(0, 0) * h_x_.transpose();
+				// ((P_/R).inv() + h_x^t*h_x).inv()
+				
+				K_ = P_temp. template block<n, 12>(0, 0) * h_x_.transpose() * W/R;
 				K_x = cov::Zero();
 				K_x. template block<n, 12>(0, 0) = P_inv. template block<n, 12>(0, 0) * HTH;
 				/*
@@ -1779,34 +1765,13 @@ public:
 				K_ = P_temp.inverse() * h_x.transpose() * R_in;
 				*/
 			#else
-				cov P_temp = (P_/R).inverse();
-				//Eigen::Matrix<scalar_type, 12, Eigen::Dynamic> h_T = h_x_.transpose();
-				Eigen::Matrix<scalar_type, 12, 12> HTH = h_x_.transpose() * h_x_; 
-				P_temp. template block<12, 12>(0, 0) += HTH;
-				/*
-				Eigen::Matrix<scalar_type, Eigen::Dynamic, Eigen::Dynamic> h_x_cur = Eigen::Matrix<scalar_type, Eigen::Dynamic, Eigen::Dynamic>::Zero(dof_Measurement, n);
-				//std::cout << "line 1767" << std::endl;
-				h_x_cur.col(0) = h_x_.col(0);
-				h_x_cur.col(1) = h_x_.col(1);
-				h_x_cur.col(2) = h_x_.col(2);
-				h_x_cur.col(3) = h_x_.col(3);
-				h_x_cur.col(4) = h_x_.col(4);
-				h_x_cur.col(5) = h_x_.col(5);
-				h_x_cur.col(6) = h_x_.col(6);
-				h_x_cur.col(7) = h_x_.col(7);
-				h_x_cur.col(8) = h_x_.col(8);
-				h_x_cur.col(9) = h_x_.col(9);
-				h_x_cur.col(10) = h_x_.col(10);
-				h_x_cur.col(11) = h_x_.col(11);
-				*/
+				cov P_temp = P_.inverse();
+				Eigen::Matrix<scalar_type, 12, 12> HTRH = h_x_.transpose() * W/R * h_x_; 
+				P_temp. template block<12, 12>(0, 0) += HTRH;
 				cov P_inv = P_temp.inverse();
-				//std::cout << "line 1781" << std::endl;
-				K_h = P_inv. template block<n, 12>(0, 0) * h_x_.transpose() * dyn_share.h;
-				//std::cout << "line 1780" << std::endl;
-				//cov HTH_cur = cov::Zero();
-				//HTH_cur. template block<12, 12>(0, 0) = HTH;
+				K_h = P_inv. template block<n, 12>(0, 0) * h_x_.transpose() * W/R * dyn_share.h;
 				K_x.setZero(); // = cov::Zero();
-				K_x. template block<n, 12>(0, 0) = P_inv. template block<n, 12>(0, 0) * HTH;
+				K_x. template block<n, 12>(0, 0) = P_inv. template block<n, 12>(0, 0) * HTRH;
 				//K_= (h_x_.transpose() * h_x_ + (P_/R).inverse()).inverse()*h_x_.transpose();
 			#endif 
 			}
@@ -1924,10 +1889,38 @@ public:
 					P_ = L_ - K_x.template block<n, 12>(0, 0) * P_.template block<12, n>(0, 0);
 				//}
 				solve_time += omp_get_wtime() - solve_start;
-				return;
+				
+				h_dyn_share(x_, dyn_share);
+
+				/*
+				cout << "Solver ended!" << endl;
+				cout << dyn_share.h << endl;
+
+				double sample_mean = 1/((double) dyn_share.h.size()) * dyn_share.h.transpose() * Eigen::VectorXd::Ones(dyn_share.h.size());
+				Eigen::VectorXd centered_h = dyn_share.h - sample_mean * Eigen::VectorXd (dyn_share.h.size());
+				double sample_var = 1/((double) (dyn_share.h.size() - 1)) * centered_h.transpose() * centered_h;
+
+				Eigen::VectorXd sol_quality(dyn_share.h.size());
+
+				for (int h_i = 0; h_i < dyn_share.h.size(); ++h_i) {
+					if (fabs(dyn_share.h(h_i)) < sample_mean + 1*sqrt(sample_var)) sol_quality(h_i) = 0;
+					else if (fabs(dyn_share.h(h_i)) < sample_mean + 2*sqrt(sample_var)) sol_quality(h_i) = 1;
+					else sol_quality(h_i) = 2;
+				}
+
+				cout << "-----------" << endl;
+				cout << "mean: " << sample_mean << endl;
+				cout << "var: " << sample_var << endl;
+				*/
+
+				Eigen::VectorXd sol_quality = dyn_share.h.cwiseAbs();
+				return sol_quality;
 			}
 			solve_time += omp_get_wtime() - solve_start;
 		}
+
+		Eigen::VectorXd sol_quality = dyn_share.h.cwiseAbs();
+		return sol_quality;
 	}
 
 	void change_x(state &input_state)

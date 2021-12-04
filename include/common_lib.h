@@ -34,8 +34,8 @@ using namespace Eigen;
 #define DEBUG_FILE_DIR(name)     (string(string(ROOT_DIR) + "Log/"+ name))
 
 typedef fast_lio::Pose6D Pose6D;
-typedef pcl::PointXYZINormal PointType;
-typedef pcl::PointCloud<PointType> PointCloudXYZI;
+typedef std_msgs::PointXYZINormal PointType;
+typedef std_msgs::PointCloud<PointType> PointCloudXYZI;
 typedef vector<PointType, Eigen::aligned_allocator<PointType>>  PointVector;
 typedef Vector3d V3D;
 typedef Matrix3d M3D;
